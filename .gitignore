@@ -1,0 +1,22 @@
+# 依赖与构建产物
+node_modules/
+lib/*.tmp
+
+# 本地维护材料，不随仓库发布
+# （docs/ 是逆向 DSH 内部 API 的研究笔记；extract-*/grow-* 是从已安装 App 的
+#  app.asar 抽包的工具；integration/loadcheck 依赖 dsh-core 测试夹具。
+#  原因：这些内容与插件本体无关，且不宜公开发布他人 App 的内部类型声明。）
+docs/
+test/extract-core.mjs
+test/grow-core.mjs
+test/integration.test.mjs
+test/loadcheck.mjs
+test/compat.mjs
+dsh-core/
+
+# 临时与其他
+visualize.html
+*.tmp
+*.log
+.DS_Store
+Thumbs.db

@@ -1,0 +1,6 @@
+# Register the Tuanjie Cowork provider without changing the profile's current
+# default model. The plugin reuses the Tuanjie Cowork desktop app's sign-in; no
+# separate OAuth flow is started.
+- insert:
+    - id: llm-tuanjie
+      name: dsh-tuanjie-connect
