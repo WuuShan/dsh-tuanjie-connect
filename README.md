@@ -100,6 +100,37 @@ Copy-Item .\package.json, .\cordis.patch.yml, .\LICENSE, .\README* $dst\
 ```
 
 
+## 更新
+
+
+插件页**没有升级按钮**（官方说明：既不列出可用版本，也不提供升级操作），所以更新要走命令行。依赖被钉在具体提交上，重新 `add` 一次即可解析到最新提交：
+
+
+```sh
+dsh plugin --profile desktop add git+https://github.com/WuuShan/dsh-tuanjie-connect.git
+```
+
+
+看到 `Packages: +1` 就是拉到了新版本；如果显示 `Already up to date` 说明已经是最新。然后**重启 DSH**。
+
+
+`dsh` 不在 PATH 时，用应用自带的入口（Windows）：
+
+```powershell
+& "E:\DeepSeek Harness\resources\runtime\cli\bin\dsh.cmd" plugin --profile desktop add git+https://github.com/WuuShan/dsh-tuanjie-connect.git
+```
+
+
+确认当前装的是哪个提交：
+
+```sh
+Select-String -Path "$env:USERPROFILE\.dsh\profiles\desktop\pnpm-lock.yaml" -Pattern 'codeload.github.com/WuuShan'
+```
+
+
+版本变化见 [CHANGELOG.md](./CHANGELOG.md)。
+
+
 ## 命令行
 
 

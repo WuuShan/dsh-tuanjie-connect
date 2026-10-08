@@ -100,6 +100,37 @@ Copy-Item .\package.json, .\cordis.patch.yml, .\LICENSE, .\README* $dst\
 ```
 
 
+## Updating
+
+
+The Plugins page has **no upgrade button** (by design: it neither lists registry versions nor offers upgrades), so updating is a command-line step. The dependency is pinned to an exact commit, and re-running `add` re-resolves it to the latest one:
+
+
+```sh
+dsh plugin --profile desktop add git+https://github.com/WuuShan/dsh-tuanjie-connect.git
+```
+
+
+`Packages: +1` means a new revision was fetched; `Already up to date` means you are current. Then **restart DSH**.
+
+
+When `dsh` is not on PATH, use the launcher the app ships (Windows):
+
+```powershell
+& "E:\DeepSeek Harness\resources\runtime\cli\bin\dsh.cmd" plugin --profile desktop add git+https://github.com/WuuShan/dsh-tuanjie-connect.git
+```
+
+
+Check which commit is installed:
+
+```sh
+Select-String -Path "$env:USERPROFILE\.dsh\profiles\desktop\pnpm-lock.yaml" -Pattern 'codeload.github.com/WuuShan'
+```
+
+
+See [CHANGELOG.md](./CHANGELOG.md) for version history.
+
+
 ## Command line
 
 
