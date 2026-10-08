@@ -30,6 +30,9 @@ Bring the models bundled with the **Tuanjie Cowork** desktop app (Codely — GLM
 - **Reasoning efforts** `low` / `high` / `max`, verified against every model on this route. Unverified spellings are deliberately not offered.
 
 
+- **Model visibility.** In the card's model tab, untick a model to hide it from DSH's model picker; tick it to bring it back. Preferences are saved per account, and hiding affects the picker only — a session already using a hidden model keeps working, and models the upstream adds later start visible.
+
+
 - **Self-healing.** A 401/403 from the gateway mints a fresh key and replays the request once. The credential file is rescanned every 30 seconds, so signing back in through the app recovers within 30 seconds — no DSH restart needed.
 
 
@@ -194,9 +197,10 @@ Two optional fields (defaults match the app's own locations):
 |---|---|
 | `authFile` | `~/.codely-cli/oauth_creds.json` |
 | `orgFile` | `~/.codely-cli/org.json` |
+| `visibilityFile` | `~/.dsh/tuanjie-visibility.json` |
 
 
-Environment variables: `DSH_TUANJIE_AUTH_FILE` / `DSH_TUANJIE_ORG_FILE` (path overrides), `DSH_TUANJIE_POLL_MS` (credential scan interval, default 30000).
+Environment variables: `DSH_TUANJIE_AUTH_FILE` / `DSH_TUANJIE_ORG_FILE` / `DSH_TUANJIE_VISIBILITY_FILE` (path overrides), `DSH_TUANJIE_POLL_MS` (credential scan interval, default 30000).
 
 
 ## Known limitations

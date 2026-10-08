@@ -61,4 +61,4 @@ check('catalog falls back when the roster is empty', buildCatalog([]).length ===
   String(buildCatalog([]).length))
 
 console.log(`\n=== RESULT: ${pass} passed, ${fail} failed ===`)
-process.exit(fail === 0 ? 0 : 1)
+process.exitCode = fail === 0 ? 0 : 1

@@ -30,6 +30,9 @@
 - **推理档位**：`low` / `high` / `max`，已对每个模型实测通过。其余档位不声明，避免选择器给出上游会忽略的选项。
 
 
+- **模型显隐**：卡片的「模型清单」标签页里，取消勾选即可在 DSH 模型选择器中隐藏该模型，重新勾选恢复。偏好按账号保存，隐藏只影响选择器——正在使用被隐藏模型的会话照常工作，上游新增的模型默认可见。
+
+
 - **自动续期与故障恢复**：网关返回 401/403 时自动换新密钥并重放一次请求；凭据文件每 30 秒扫描一次，App 里重新登录后 30 秒内自动恢复，无需重启 DSH。
 
 
@@ -186,6 +189,9 @@ signature  = "v1." + unix秒 + "." + base64url( HMAC-SHA256(signingKey, "v1\n" +
 账号检测走控制面的两个接口：`/auth/external/me`（账号信息）与 `/api/user/usage/summary`（剩余额度与分池明细）。宿主把它挂成同源路由 `/plugins/dsh-tuanjie-connect/status`，插件页的账号卡片从这里取数——**浏览器侧从不接触令牌**，响应里也不含任何密钥。同一个本地端点还提供 `/status` 路由供其他本机消费者使用，同样需要 bearer。
 
 
+模型显隐的写入走 `POST /plugins/dsh-tuanjie-connect/visibility`，偏好落在插件自己的文件里，不碰桌面 App 的凭据。隐藏在 `listModels` 一层生效（`LlmAdapter` 契约：核心路由接受未列出的模型 id），所以选择器看不见、已有会话照常工作；pi-ai 的 `filterModels` 钩子用不了——它只在 `getAvailable()` 里生效，列出模型的那条路径根本不经过它。
+
+
 ### 配置
 
 
@@ -196,9 +202,10 @@ signature  = "v1." + unix秒 + "." + base64url( HMAC-SHA256(signingKey, "v1\n" +
 |---|---|
 | `authFile` | `~/.codely-cli/oauth_creds.json` |
 | `orgFile` | `~/.codely-cli/org.json` |
+| `visibilityFile` | `~/.dsh/tuanjie-visibility.json` |
 
 
-环境变量：`DSH_TUANJIE_AUTH_FILE` / `DSH_TUANJIE_ORG_FILE`（覆盖文件路径）、`DSH_TUANJIE_POLL_MS`（凭据扫描间隔，默认 30000）。
+环境变量：`DSH_TUANJIE_AUTH_FILE` / `DSH_TUANJIE_ORG_FILE` / `DSH_TUANJIE_VISIBILITY_FILE`（覆盖文件路径）、`DSH_TUANJIE_POLL_MS`（凭据扫描间隔，默认 30000）。
 
 
 ## 已知限制

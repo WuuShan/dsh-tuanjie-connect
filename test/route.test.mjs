@@ -87,4 +87,4 @@ check('unknown route is 404', missing.status === 404, String(missing.status))
 
 await new Promise((resolve) => server.close(resolve))
 console.log(`\n=== RESULT: ${pass} passed, ${fail} failed ===`)
-process.exit(fail === 0 ? 0 : 1)
+process.exitCode = fail === 0 ? 0 : 1

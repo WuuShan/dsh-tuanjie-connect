@@ -97,4 +97,4 @@ check('route leaks no token', !/eyJ[A-Za-z0-9_-]{10,}|sk-[A-Za-z0-9_-]{8,}/.test
 
 await shim.close()
 console.log(`\n=== RESULT: ${pass} passed, ${fail} failed ===`)
-process.exit(fail === 0 ? 0 : 1)
+process.exitCode = fail === 0 ? 0 : 1

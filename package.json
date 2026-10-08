@@ -2,7 +2,7 @@
   "name": "dsh-tuanjie-connect",
   "displayName": "DSH Tuanjie Cowork Connect",
   "description": "将 Tuanjie Cowork (Codely) 桌面 App 中的模型自动接入 DeepSeek Harness — bring Tuanjie Cowork (Codely) app models into DeepSeek Harness with zero configuration.",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "author": "WuuShan",
   "keywords": [
     "dsh-plugin",

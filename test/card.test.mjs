@@ -333,4 +333,4 @@ check('payload carries no sk- key', !/sk-[A-Za-z0-9_-]{8,}/.test(serialized))
 check('payload names the account', status.username !== undefined, String(status.username))
 
 console.log(`\n=== RESULT: ${pass} passed, ${fail} failed ===`)
-process.exit(fail === 0 ? 0 : 1)
+process.exitCode = fail === 0 ? 0 : 1
