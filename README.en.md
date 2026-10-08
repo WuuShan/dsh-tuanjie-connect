@@ -33,6 +33,21 @@ Bring the models bundled with the **Tuanjie Cowork** desktop app (Codely — GLM
 - **Self-healing.** A 401/403 from the gateway mints a fresh key and replays the request once. The credential file is rescanned every 30 seconds, so signing back in through the app recovers within 30 seconds — no DSH restart needed.
 
 
+- **Account detection.** `dsh-tuanjie-connect status` reports the signed-in account, email, token expiry, **remaining quota** and model-key health; `doctor` prints secret-free diagnostics (paths, token expiry, key state). Both accept `--json`, and neither ever emits a token — they are redacted automatically.
+
+```console
+$ dsh-tuanjie-connect status
+Tuanjie Cowork Connect: signed in as WuuShan
+Email: 805490972@qq.com
+Access token expires 2027-10-08T03:34:26.000Z (364 days; refresh is automatic)
+Remaining quota: 9948 points
+Model key: ready
+Credential file: C:\Users\Administrator\.codely-cli\oauth_creds.json
+```
+
+  Signed-out, rejected-token and exhausted-quota each get their own explicit state and hint instead of failing silently.
+
+
 - **Cost reports as zero**: quota is subscription-based and no per-token price is knowable.
 
 
@@ -85,16 +100,33 @@ Copy-Item .\package.json, .\cordis.patch.yml, .\LICENSE, .\README* $dst\
 ```
 
 
+## Command line
+
+
+```sh
+dsh plugin --profile desktop exec dsh-tuanjie-connect status     # account, quota, key state
+dsh plugin --profile desktop exec dsh-tuanjie-connect doctor     # diagnostics (paths, expiry, key)
+```
+
+Both accept `--json`. They also run directly:
+
+```sh
+node lib/bin.js status
+```
+
+
 ## Verify your install
 
 
 ```sh
 git clone https://github.com/WuuShan/dsh-tuanjie-connect
-cd dsh-tuanjie-connect && npm test
+cd dsh-tuanjie-connect
+node test/protocol.test.mjs   # 34 checks: credentials, signing, roster, shim, streaming, tools, images
+node test/account.test.mjs    # 31 checks: account, quota, redaction, status route
 ```
 
 
-`test/protocol.test.mjs` runs 34 checks against the real gateway using your own sign-in: credential reading, request signing, the model roster, loopback auth boundaries, streaming, tool calls and image input. All green means the install works.
+Both run against the real endpoints using your own sign-in. All green means the install works.
 
 
 > This sends a few real requests and may consume quota.
@@ -116,6 +148,9 @@ The `sk-…` value is a LiteLLM virtual key minted with the app's `access_token`
 
 
 Because pi-ai's `streamSimple` path does not accept a custom `fetch` while the signature must be injected per request, the plugin runs a loopback endpoint bound to `127.0.0.1`: pi-ai speaks plain OpenAI to it, and it signs and forwards upstream. The upstream key never leaves the plugin process — pi-ai only ever holds a per-run random bearer. Reasoning arrives as OpenAI-style `reasoning_content`, which pi-ai parses natively on this transport.
+
+
+Account detection uses two control-plane endpoints: `/auth/external/me` (identity) and `/api/user/usage/summary` (remaining quota and per-pool detail). The same loopback endpoint also serves a `/status` route for local consumers such as the settings card — it requires the same bearer and carries no secret.
 
 
 ### Configuration
