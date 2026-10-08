@@ -197,21 +197,24 @@ check('card returns an element', cardOut?.__element === true)
 // Walk the produced tree. A card whose children were passed in the wrong
 // position renders "successfully" at the top level while its nested components
 // receive null props, so the top-level check above is not enough.
+// `walk` collects into a caller-supplied sink: an earlier version pushed into
+// one shared array, so renderTab/renderBody only ever inspected their root
+// element and the nested-input assertions were vacuous.
 const tree = []
-function walk(node, depth) {
-  if (node === null || node === undefined || depth > 6) return
+function walk(node, depth, sink) {
+  if (node === null || node === undefined || depth > 8) return
   if (Array.isArray(node)) {
-    for (const child of node) walk(child, depth)
+    for (const child of node) walk(child, depth, sink)
     return
   }
   if (typeof node !== 'object') return
   if (node.__element) {
-    tree.push(node)
-    walk(node.children, depth + 1)
-    if (node.props?.children !== undefined) walk(node.props.children, depth + 1)
+    sink.push(node)
+    walk(node.children, depth + 1, sink)
+    if (node.props?.children !== undefined) walk(node.props.children, depth + 1, sink)
   }
 }
-walk(cardOut, 0)
+walk(cardOut, 0, tree)
 check('the tree contains nested elements', tree.length > 1, `${tree.length} elements`)
 check('no element received null props',
   tree.every((n) => n.props !== null && typeof n.props === 'object'),
@@ -246,8 +249,8 @@ function renderBody(status) {
     error = caught
   }
   const nodes = []
-  walk(out, 0)
   if (out !== undefined) nodes.push(out)
+  walk(out, 0, nodes)
   return { error, out, nodes: nodes.filter((n) => n?.__element) }
 }
 
@@ -286,8 +289,8 @@ function renderTab(component, props) {
     error = caught
   }
   const nodes = []
-  walk(out, 0)
   if (out !== undefined) nodes.push(out)
+  walk(out, 0, nodes)
   return { error, out, nodes: nodes.filter((n) => n?.__element) }
 }
 
@@ -319,6 +322,41 @@ const quotaError = renderTab(exported.QuotaTab, {
   account: { remainingPoints: undefined, buckets: [], quotaError: 'HTTP 500' },
 })
 check('quota tab surfaces a quota error', quotaError.error === undefined, String(quotaError.error))
+
+console.log('\n=== 7b. a click must ask for the FLIPPED state ===')
+// The shipped defect: ModelsTab passed the *current* visibility and the card
+// inverted it again, so the two negations cancelled and every toggle wrote back
+// the state it was meant to change — the checkbox snapped shut after reload.
+const toggles = []
+const interactive = renderTab(exported.ModelsTab, {
+  models,
+  hidden: [], // nothing hidden: both checkboxes start ticked
+  onToggle: (modelId, shouldHide) => toggles.push({ modelId, shouldHide }),
+})
+
+/** The checkbox inputs, in roster order. */
+const boxes = interactive.nodes.filter((n) => n.type === 'input' && n.props?.type === 'checkbox')
+check('each model renders a checkbox', boxes.length === models.length, `${boxes.length}`)
+check('a visible model renders ticked', boxes.every((b) => b.props.checked === true))
+
+boxes.forEach((box, index) => box.props.onChange())
+check('a click reached the callback for every model', toggles.length === models.length,
+  JSON.stringify(toggles))
+check('clicking a VISIBLE model asks to HIDE it',
+  toggles.every((t) => t.shouldHide === true), JSON.stringify(toggles))
+
+// And the mirror case: a model already hidden must ask to be shown again.
+const togglesBack = []
+const hiddenOne = renderTab(exported.ModelsTab, {
+  models,
+  hidden: ['codely-core'],
+  onToggle: (modelId, shouldHide) => togglesBack.push({ modelId, shouldHide }),
+})
+const boxHidden = hiddenOne.nodes.filter((n) => n.type === 'input' && n.props?.type === 'checkbox')
+check('a hidden model renders unticked', boxHidden[0]?.props.checked === false)
+boxHidden[0].props.onChange()
+check('clicking a HIDDEN model asks to SHOW it',
+  togglesBack[0]?.shouldHide === false, JSON.stringify(togglesBack))
 
 console.log('\n=== 8. the route answers a secret-free document ===')
 // Exercise the handler shape the host registers, with the real collectStatus.

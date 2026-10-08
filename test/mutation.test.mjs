@@ -54,6 +54,17 @@ const CASES = [
     suite: 'card.test.mjs',
   },
   {
+    name: 'visibility: toggle passes the current state instead of the flipped one',
+    file: 'lib/client.js',
+    from: 'onChange: () => props.onToggle(model.id, !isHidden)',
+    // The shipped defect: ModelsTab passed the current visibility and the card
+    // inverted it again, so the two negations cancelled and the write always
+    // recorded the state it was supposed to change — the checkbox snapped shut
+    // after the reload.
+    to: 'onChange: () => props.onToggle(model.id, isHidden)',
+    suite: 'card.test.mjs',
+  },
+  {
     name: 'visibility: hide by filtering the provider instead of the listing',
     file: 'lib/index.js',
     from: 'async listModels(provider) {',
