@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.1.5
+
+修正客户端半边的两处声明。
+
+- **客户端插件名不再与宿主重名**：浏览器半边的 cordis 插件名改为 `dsh-tuanjie-connect-client`（原来误用了宿主的 `llm-tuanjie`）。两半在同一个 runtime 里是独立插件，同名会让第二次注册被判为重复而丢弃。
+- **`dsh.client.inject` 改为空数组**：原来填的 `@deepseek-ai/dsh-client-ui-slots` 是 Node 侧纯核心包（其 package.json 没有 `dsh.client` 声明），不是浏览器模块。卡片只用宿主提供的 React，不需要注入任何客户端包。
+- 新增 `test/discover-client.mjs`（复现 DSH 的客户端包发现流程）与 `test/list-client-packages.mjs`（列出 DSH 中所有声明 `dsh.client` 的包）。
+
+## 0.1.4
+
+改用正确的插槽。
+
+- 卡片注册到 `plugins.bundle.config`（原来误用 `plugins.detail.section`）。DSH 插件页渲染 bundle 自身配置面板的方式是 `renderSlot('plugins.bundle.config', { view: 'page' }, { entryKey: pkg.name })`，且只在 `ledger.bundles.has(pkg.name)` 时渲染——插槽名与 key 都必须正确。
+- `test/card.test.mjs` 增加插槽名、key、以及 key 与 `package.json` name 一致的断言。
+
 ## 0.1.3
 
 修复卡片不显示。
