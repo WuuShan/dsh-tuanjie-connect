@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.2
+
+界面卡片。
+
+- 新增设置页**账号卡片**（`lib/client.js`）：在插件页 Tuanjie Cowork 条目下显示登录状态、账号、邮箱、令牌到期、剩余额度、模型密钥健康度，带「刷新」按钮。
+- 宿主新增同源状态路由 `/plugins/dsh-tuanjie-connect/status`（`ctx.webServer.register`），卡片从这里取数，浏览器侧不接触任何令牌。
+- 新增 `dsh.client` 声明与 `settings.plugin.item` 插槽注册；`webServer` 为可选注入，无该服务的 headless profile 只是不显示卡片。
+- 新增 `test/card.test.mjs`（27 项）与 `test/route.test.mjs`（20 项，真实 HTTP）。
+
 ## 0.1.1
 
 账号检测。

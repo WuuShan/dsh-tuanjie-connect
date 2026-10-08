@@ -33,7 +33,7 @@
 - **自动续期与故障恢复**：网关返回 401/403 时自动换新密钥并重放一次请求；凭据文件每 30 秒扫描一次，App 里重新登录后 30 秒内自动恢复，无需重启 DSH。
 
 
-- **账号检测**：`dsh-tuanjie-connect status` 直接显示登录账号、邮箱、令牌剩余有效期、**剩余额度**和模型密钥健康度；`doctor` 输出不含密钥的诊断信息（路径、令牌到期、密钥状态）。两者都支持 `--json`，且**输出里永不包含令牌**（自动脱敏）。
+- **账号检测**：**插件页里有账号卡片**——在侧边栏「插件」→ Tuanjie Cowork 条目下直接显示登录状态、账号、邮箱、令牌到期、剩余额度、模型密钥健康度，带「刷新」按钮。命令行同样可用：`dsh-tuanjie-connect status` 显示同一份信息，`doctor` 输出不含密钥的诊断信息。两者都支持 `--json`，且**输出里永不包含令牌**（自动脱敏）。
 
 ```console
 $ dsh-tuanjie-connect status
@@ -154,6 +154,8 @@ git clone https://github.com/WuuShan/dsh-tuanjie-connect
 cd dsh-tuanjie-connect
 node test/protocol.test.mjs   # 34 项：凭据、签名、模型清单、本地端点、流式、工具、图片
 node test/account.test.mjs    # 31 项：账号、额度、脱敏、状态路由
+node test/card.test.mjs       # 27 项：卡片插槽、客户端 bundle、状态文档
+node test/route.test.mjs      # 20 项：状态路由的真实 HTTP 行为
 ```
 
 
@@ -181,7 +183,7 @@ signature  = "v1." + unix秒 + "." + base64url( HMAC-SHA256(signingKey, "v1\n" +
 因为 pi-ai 的 `streamSimple` 路径不接受自定义 `fetch`，而签名必须按请求注入 header，插件起了一个只监听 `127.0.0.1` 的本地端点：pi-ai 对它说标准 OpenAI，它负责签名后转发。上游密钥只留在插件进程内，pi-ai 拿到的是每次运行重新生成的随机 bearer。网关用 `reasoning_content` 返回思考内容，pi-ai 原生解析该字段，无需自定义解码。
 
 
-账号检测走控制面的两个接口：`/auth/external/me`（账号信息）与 `/api/user/usage/summary`（剩余额度与分池明细）。同一个本地端点也提供 `/status` 路由，供设置卡片等本机消费者读取——同样需要 bearer，且响应中不含任何密钥。
+账号检测走控制面的两个接口：`/auth/external/me`（账号信息）与 `/api/user/usage/summary`（剩余额度与分池明细）。宿主把它挂成同源路由 `/plugins/dsh-tuanjie-connect/status`，插件页的账号卡片从这里取数——**浏览器侧从不接触令牌**，响应里也不含任何密钥。同一个本地端点还提供 `/status` 路由供其他本机消费者使用，同样需要 bearer。
 
 
 ### 配置
