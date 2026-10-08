@@ -40,7 +40,10 @@ console.log('\n=== 3. the client bundle is well-formed ===')
 check('declares the module loader call', clientSource.includes('window.__ModuleLoader__.load('))
 check('declares its bundle id', clientSource.includes("id: 'dsh-tuanjie-connect'"))
 check('requires react from the host', clientSource.includes("require('react')"))
-check('requires the jsx runtime from the host', clientSource.includes("require('react/jsx-runtime')"))
+// The card is written in createElement style. Aliasing the jsx-runtime `jsx`
+// here is the bug that crashed it: the two have different signatures.
+check('uses createElement, not the jsx runtime',
+  clientSource.includes('react.createElement') && !clientSource.includes("require('react/jsx-runtime')"))
 check('imports nothing else from npm', !/require\(['"](?!react)/.test(clientSource))
 
 // DSH finds the browser half through the package's exports map, so a missing
@@ -73,6 +76,25 @@ const stubSlots = {
 }
 const stubCtx = { slots: stubSlots }
 
+/**
+ * A faithful-enough React stub.
+ *
+ * The important part is `createElement` reproducing React's real signature and
+ * its `config.key` access: the previous stub returned null for everything, so a
+ * component that passed children in the wrong position — which is exactly what
+ * happened when this file aliased the jsx-runtime `jsx` as `createElement` —
+ * still "passed". React threw on `config.key` for a null props object, and the
+ * card died inside its error boundary.
+ */
+function createElementStub(type, config, ...children) {
+  // Reproduce React's own key read, so a null config throws here too.
+  const key = config === null || config === undefined ? undefined : config.key
+  if (config !== null && config !== undefined && typeof config !== 'object') {
+    throw new Error('createElement: config must be an object or null')
+  }
+  return { __element: true, type, key, props: config ?? {}, children }
+}
+
 const previousWindow = globalThis.window
 globalThis.window = {
   __ModuleLoader__: {
@@ -81,18 +103,20 @@ globalThis.window = {
         if (name === 'react') {
           return {
             Fragment: Symbol('Fragment'),
+            // These components are rendered by calling them directly, so state
+            // reads back its initial value; the status body — the branch that
+            // actually reads the fetched document — is exported and rendered on
+            // its own rather than driven through a fetch.
             useState: (v) => [typeof v === 'function' ? v() : v, () => {}],
             useEffect: () => {},
             useCallback: (fn) => fn,
-            createElement: () => null,
+            createElement: createElementStub,
           }
         }
         if (name === 'react/jsx-runtime') {
-          // Return a distinguishable marker rather than null, so a test can
-          // tell "rendered an element" apart from "returned null to skip".
           return {
-            jsx: (type, props) => ({ __element: true, type, props }),
-            jsxs: (type, props) => ({ __element: true, type, props }),
+            jsx: (type, props, key) => ({ __element: true, type, key, props, children: [] }),
+            jsxs: (type, props, key) => ({ __element: true, type, key, props, children: [] }),
           }
         }
         throw new Error(`unexpected require: ${name}`)
@@ -169,6 +193,84 @@ try {
 }
 check('card renders without throwing', cardError === undefined, String(cardError))
 check('card returns an element', cardOut?.__element === true)
+
+// Walk the produced tree. A card whose children were passed in the wrong
+// position renders "successfully" at the top level while its nested components
+// receive null props, so the top-level check above is not enough.
+const tree = []
+function walk(node, depth) {
+  if (node === null || node === undefined || depth > 6) return
+  if (Array.isArray(node)) {
+    for (const child of node) walk(child, depth)
+    return
+  }
+  if (typeof node !== 'object') return
+  if (node.__element) {
+    tree.push(node)
+    walk(node.children, depth + 1)
+    if (node.props?.children !== undefined) walk(node.props.children, depth + 1)
+  }
+}
+walk(cardOut, 0)
+check('the tree contains nested elements', tree.length > 1, `${tree.length} elements`)
+check('no element received null props',
+  tree.every((n) => n.props !== null && typeof n.props === 'object'),
+  JSON.stringify(tree.filter((n) => n.props === null).map((n) => String(n.type)).slice(0, 3)))
+check('no element keyed by a string child',
+  tree.every((n) => n.key === undefined || typeof n.key === 'string'),
+  JSON.stringify(tree.filter((n) => n.key !== undefined).map((n) => String(n.key)).slice(0, 3)))
+
+// The status body is the branch that reads the fetched document, and it only
+// appears after the fetch resolves — which this stub never does. Render it
+// directly instead: this is the code path whose children were passed in the
+// wrong position and crashed the card inside React.
+check('bundle exports StatusBody for testing', typeof exported.StatusBody === 'function')
+
+const sample = {
+  state: 'signed-in',
+  username: 'WuuShan',
+  email: 'u@example.com',
+  accessTokenExpires: new Date(Date.now() + 86400000).toISOString(),
+  accessTokenDaysLeft: 1,
+  account: { remainingPoints: 9948, buckets: [{ type: 'gift_credit', remainingPoints: 9948 }] },
+  modelKey: { state: 'ready' },
+}
+
+/** Render one status body and walk everything it produced. */
+function renderBody(status) {
+  let error
+  let out
+  try {
+    out = exported.StatusBody({ status })
+  } catch (caught) {
+    error = caught
+  }
+  const nodes = []
+  walk(out, 0)
+  if (out !== undefined) nodes.push(out)
+  return { error, out, nodes: nodes.filter((n) => n?.__element) }
+}
+
+const signedIn = renderBody(sample)
+check('signed-in body renders without throwing', signedIn.error === undefined, String(signedIn.error))
+check('signed-in body produces elements', signedIn.nodes.length > 0, `${signedIn.nodes.length}`)
+check('signed-in body has no null props',
+  signedIn.nodes.every((n) => n.props !== null && typeof n.props === 'object'))
+check('signed-in body names the account',
+  signedIn.nodes.some((n) => JSON.stringify(n.children ?? []).includes('WuuShan')))
+
+// The four states the card must survive.
+for (const state of [
+  { state: 'signed-out', hint: 'sign in' },
+  { state: 'error', hint: 'rejected', error: 'HTTP 401' },
+  { state: 'quota-exhausted', username: 'u', account: { remainingPoints: 0, buckets: [] }, modelKey: {} },
+  { state: 'signed-in', username: 'u', account: { remainingPoints: 5, buckets: [] }, modelKey: { state: 'unavailable' } },
+]) {
+  const rendered = renderBody(state)
+  check(`"${state.state}" body renders`, rendered.error === undefined, String(rendered.error))
+  check(`"${state.state}" body has no null props`,
+    rendered.nodes.every((n) => n.props !== null && typeof n.props === 'object'))
+}
 
 console.log('\n=== 7. the route answers a secret-free document ===')
 // Exercise the handler shape the host registers, with the real collectStatus.

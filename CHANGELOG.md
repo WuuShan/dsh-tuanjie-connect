@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.6
+
+**修复卡片崩溃** —— 卡片其实一直有在渲染，是组件自己抛异常被 React 错误边界吞掉了（控制台报 `slot entry crashed in 'plugins.bundle.config'`）。
+
+- **根因**：`lib/client.js` 把 jsx-runtime 的 `jsx` 当作元素工厂用了。两者签名不同——`createElement(type, props, ...children)` 对 `jsx(type, props, key)`——于是 `h(Note, null, '文本')` 把中文字符串当成了 `key`、`props` 传成 `null`，React 内部读 `config.key` 时抛 `Cannot read properties of null (reading 'key')`。改用 `react.createElement`。
+- **测试为什么没拦住**：桩函数的 `createElement` 直接返回 `null`，永远不会抛错。现在桩函数**复现 React 的真实签名与 `config.key` 访问**，并新增 `test/mutation.test.mjs`——把原 bug 注入回去，要求测试必须失败（实测会失败 9 项）。一条对坏代码也通过的测试等于没有测试。
+
 ## 0.1.5
 
 修正客户端半边的两处声明。
