@@ -123,14 +123,15 @@ try {
   applyError = error
 }
 check('apply() does not throw', applyError === undefined, String(applyError))
-check('injects the Plugins-page slot', injections.includes('plugins.detail.section'), injections.join(','))
-check('registers a card for it', registrations.some((r) => r.spec?.name === 'plugins.detail.section'),
+check('injects the bundle-config slot', injections.includes('plugins.bundle.config'), injections.join(','))
+check('registers a card for it', registrations.some((r) => r.spec?.name === 'plugins.bundle.config'),
   registrations.map((r) => r.spec?.name).join(','))
 
-// The slot name is the whole contract. DSH 0.2.0's Plugins page declares the
-// slots below and has no consumer for `settings.plugin.item`, so a card
-// registered only there never renders. These names are taken from the shipped
-// client bundle of @deepseek-ai/dsh-client-ui-plugin-manager.
+// The slot name AND its filter key are the whole contract. DSH 0.2.0's Plugins
+// page renders the bundle panel as:
+//   renderSlot('plugins.bundle.config', { view: 'page' }, { entryKey: pkg.name })
+// so a registration must name that slot and key itself by the bundle package
+// name, or the page looks up a key nothing registered under.
 const pageSlots = new Set([
   'plugins.bundle.activation',
   'plugins.bundle.config',
@@ -148,19 +149,26 @@ for (const registration of registrations) {
   )
 }
 
-const detail = registrations.find((r) => r.spec?.name === 'plugins.detail.section')
-check('detail section has an id', typeof detail?.spec?.id === 'string', String(detail?.spec?.id))
-check('detail section has a component', typeof detail?.component === 'function')
+const config = registrations.find((r) => r.spec?.name === 'plugins.bundle.config')
+check('bundle-config registration exists', config !== undefined)
+check('keyed by the bundle package name', config?.spec?.key === 'dsh-tuanjie-connect',
+  String(config?.spec?.key))
+check('registration key equals package.json name', config?.spec?.key === manifest.name,
+  `slot key=${config?.spec?.key} package name=${manifest.name}`)
+check('bundle-config has a component', typeof config?.component === 'function')
 
-console.log('\n=== 6. the detail section renders only for its own bundle ===')
-const section = detail.component
-check('renders nothing while no detail is open', section({ subject: null }) === null)
-check('renders nothing for another bundle',
-  section({ subject: { kind: 'bundle', pkg: { name: 'dsh-workbuddy-connect' } } }) === null)
-check('renders for its own bundle',
-  section({ subject: { kind: 'bundle', pkg: { name: 'dsh-tuanjie-connect' } } })?.__element === true)
-check('tolerates a subject without pkg',
-  section({ subject: { kind: 'bundle' } })?.__element === true)
+console.log('\n=== 6. the card component renders ===')
+// Call the component with the props the page passes. The stub React returns a
+// marker element, so this proves it renders rather than throwing.
+let cardError
+let cardOut
+try {
+  cardOut = config.component({ view: 'page' })
+} catch (error) {
+  cardError = error
+}
+check('card renders without throwing', cardError === undefined, String(cardError))
+check('card returns an element', cardOut?.__element === true)
 
 console.log('\n=== 7. the route answers a secret-free document ===')
 // Exercise the handler shape the host registers, with the real collectStatus.
