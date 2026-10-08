@@ -43,6 +43,18 @@ check('requires react from the host', clientSource.includes("require('react')"))
 check('requires the jsx runtime from the host', clientSource.includes("require('react/jsx-runtime')"))
 check('imports nothing else from npm', !/require\(['"](?!react)/.test(clientSource))
 
+// DSH finds the browser half through the package's exports map, so a missing
+// "./client" entry means the card silently never loads.
+const manifest = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'))
+check('package declares an exports map', manifest.exports !== undefined)
+check('exports "./client"', manifest.exports?.['./client'] === './lib/client.js',
+  String(manifest.exports?.['./client']))
+check('exports the root entry', manifest.exports?.['.']?.default === './lib/index.js',
+  JSON.stringify(manifest.exports?.['.']))
+check('declares a web client half', manifest.dsh?.client?.platform === 'web',
+  JSON.stringify(manifest.dsh?.client))
+check('client half is shipped in files', manifest.files?.includes('lib'), JSON.stringify(manifest.files))
+
 console.log('\n=== 4. executing the bundle against a stubbed loader ===')
 /** Capture what the bundle does when the host loads it. */
 const registrations = []
@@ -76,7 +88,12 @@ globalThis.window = {
           }
         }
         if (name === 'react/jsx-runtime') {
-          return { jsx: () => null, jsxs: () => null }
+          // Return a distinguishable marker rather than null, so a test can
+          // tell "rendered an element" apart from "returned null to skip".
+          return {
+            jsx: (type, props) => ({ __element: true, type, props }),
+            jsxs: (type, props) => ({ __element: true, type, props }),
+          }
         }
         throw new Error(`unexpected require: ${name}`)
       })
@@ -106,15 +123,46 @@ try {
   applyError = error
 }
 check('apply() does not throw', applyError === undefined, String(applyError))
-check('injects the settings slot', injections.includes('settings.plugin.item'), injections.join(','))
-check('registers exactly one card', registrations.length === 1, String(registrations.length))
-check('card targets settings.plugin.item', registrations[0]?.spec?.name === 'settings.plugin.item',
-  JSON.stringify(registrations[0]?.spec))
-check('card key matches the host section id', registrations[0]?.spec?.key === 'tuanjie',
-  String(registrations[0]?.spec?.key))
-check('card has a component', typeof registrations[0]?.component === 'function')
+check('injects the Plugins-page slot', injections.includes('plugins.detail.section'), injections.join(','))
+check('registers a card for it', registrations.some((r) => r.spec?.name === 'plugins.detail.section'),
+  registrations.map((r) => r.spec?.name).join(','))
 
-console.log('\n=== 6. the route answers a secret-free document ===')
+// The slot name is the whole contract. DSH 0.2.0's Plugins page declares the
+// slots below and has no consumer for `settings.plugin.item`, so a card
+// registered only there never renders. These names are taken from the shipped
+// client bundle of @deepseek-ai/dsh-client-ui-plugin-manager.
+const pageSlots = new Set([
+  'plugins.bundle.activation',
+  'plugins.bundle.config',
+  'plugins.detail.actions',
+  'plugins.detail.badge',
+  'plugins.detail.section',
+  'plugins.item',
+  'plugins.row.config',
+])
+for (const registration of registrations) {
+  check(
+    `slot "${registration.spec?.name}" is one DSH actually declares`,
+    pageSlots.has(registration.spec?.name) || registration.spec?.name === 'settings.plugin.item',
+    registration.spec?.name,
+  )
+}
+
+const detail = registrations.find((r) => r.spec?.name === 'plugins.detail.section')
+check('detail section has an id', typeof detail?.spec?.id === 'string', String(detail?.spec?.id))
+check('detail section has a component', typeof detail?.component === 'function')
+
+console.log('\n=== 6. the detail section renders only for its own bundle ===')
+const section = detail.component
+check('renders nothing while no detail is open', section({ subject: null }) === null)
+check('renders nothing for another bundle',
+  section({ subject: { kind: 'bundle', pkg: { name: 'dsh-workbuddy-connect' } } }) === null)
+check('renders for its own bundle',
+  section({ subject: { kind: 'bundle', pkg: { name: 'dsh-tuanjie-connect' } } })?.__element === true)
+check('tolerates a subject without pkg',
+  section({ subject: { kind: 'bundle' } })?.__element === true)
+
+console.log('\n=== 7. the route answers a secret-free document ===')
 // Exercise the handler shape the host registers, with the real collectStatus.
 const { collectStatus } = await import(
   new URL('../lib/codely.js', import.meta.url).href
