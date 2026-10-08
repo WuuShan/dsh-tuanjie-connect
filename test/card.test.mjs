@@ -272,7 +272,55 @@ for (const state of [
     rendered.nodes.every((n) => n.props !== null && typeof n.props === 'object'))
 }
 
-console.log('\n=== 7. the route answers a secret-free document ===')
+console.log('\n=== 7. the other two tabs render ===')
+check('bundle exports ModelsTab', typeof exported.ModelsTab === 'function')
+check('bundle exports QuotaTab', typeof exported.QuotaTab === 'function')
+
+/** Render any tab component and walk its tree. */
+function renderTab(component, props) {
+  let error
+  let out
+  try {
+    out = component(props)
+  } catch (caught) {
+    error = caught
+  }
+  const nodes = []
+  walk(out, 0)
+  if (out !== undefined) nodes.push(out)
+  return { error, out, nodes: nodes.filter((n) => n?.__element) }
+}
+
+const models = [
+  { id: 'codely-core', name: 'codely-core · GLM-5.3', contextWindow: 1048576, maxTokens: 16384, images: true },
+  { id: 'codely-vl', name: 'codely-vl · Vision', contextWindow: 202752, maxTokens: 16384, images: false },
+]
+const modelsTab = renderTab(exported.ModelsTab, { models })
+check('models tab renders', modelsTab.error === undefined, String(modelsTab.error))
+check('models tab produces elements', modelsTab.nodes.length > 0, `${modelsTab.nodes.length}`)
+check('models tab has no null props',
+  modelsTab.nodes.every((n) => n.props !== null && typeof n.props === 'object'))
+
+const emptyModels = renderTab(exported.ModelsTab, { models: undefined })
+check('models tab survives a missing roster', emptyModels.error === undefined, String(emptyModels.error))
+
+const quotaTab = renderTab(exported.QuotaTab, {
+  account: { remainingPoints: 9948, exhausted: false, buckets: [{ type: 'gift_credit', remainingPoints: 9948 }] },
+})
+check('quota tab renders', quotaTab.error === undefined, String(quotaTab.error))
+check('quota tab has no null props',
+  quotaTab.nodes.every((n) => n.props !== null && typeof n.props === 'object'))
+
+const quotaEmpty = renderTab(exported.QuotaTab, { account: { remainingPoints: 0, buckets: [] } })
+check('quota tab survives an empty pool list', quotaEmpty.error === undefined, String(quotaEmpty.error))
+const quotaMissing = renderTab(exported.QuotaTab, { account: undefined })
+check('quota tab survives a missing account', quotaMissing.error === undefined, String(quotaMissing.error))
+const quotaError = renderTab(exported.QuotaTab, {
+  account: { remainingPoints: undefined, buckets: [], quotaError: 'HTTP 500' },
+})
+check('quota tab surfaces a quota error', quotaError.error === undefined, String(quotaError.error))
+
+console.log('\n=== 8. the route answers a secret-free document ===')
 // Exercise the handler shape the host registers, with the real collectStatus.
 const { collectStatus } = await import(
   new URL('../lib/codely.js', import.meta.url).href
