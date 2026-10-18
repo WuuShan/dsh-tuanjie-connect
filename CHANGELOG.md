@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.10
+
+适配 DSH `0.2.1-rc.2`，并把 peer 范围从精确 pin 放宽。
+
+- **问题**：插件把 `@deepseek-ai/dsh-llm` / `dsh-llm-pi-ai` 精确钉在 `0.2.0-rc.2`，而 DSH 的门禁拿运行内核版本去匹配这个范围——内核升到 `0.2.1-rc.2` 后整包被判定不兼容而拒绝（「请卸载后重新安装与当前 DSH 兼容的版本」）。
+- **改法**：范围改为 `^0.2.0-rc.2`。`test/peer-range.mjs` 实测各候选范围在门禁下的表现后选定：它覆盖两个已实测内核（`0.2.0-rc.2`、`0.2.1-rc.2`）与整个 `0.2.x`，同时 `0.3.x` 仍被拦下要求重新验证。（顺带发现 `>=0.2.0-rc.2 <0.3.0` 在 `includePrerelease` 下会错误放行 `0.3.0-rc.1`——所以没有用它。）
+- `@earendil-works/pi-ai` 声明改为 `^0.87.1 || ^1.0.0`：该包不在门禁内，但实际已从 `0.87.1` 跳到 `1.1.0`，旧范围与事实不符。
+- **内核升级做了实际验证，不只是改版本号**：从新 asar 重建 `dsh-core` 夹具，逐项审计插件用到的私有 API（`PiAiAdapter`、`listModels`/`resolveModel`/`prepareCall`、`createAdapter` 的 `piProvider`、`registerAdapter`、`llm/adapters-updated`、`plugins.bundle.config` 插槽与 `entryKey` 过滤、`exports["./client"]`），并用真实 `apply()` 跑通可见性与卡片行为。
+- 新增 `test/compat-core.mjs`（API 面审计）、`test/gate.test.mjs`（用 DSH 自己的门禁逻辑判定本清单，并断言 `0.3.x` 会被拒绝）、`test/peer-range.mjs`（候选范围的决策依据）。
+
 ## 0.1.9
 
 修复勾选框点击无效（点了闪一下又弹回去）。

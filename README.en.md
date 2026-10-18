@@ -79,12 +79,16 @@ dsh plugin --profile desktop add git+https://github.com/WuuShan/dsh-tuanjie-conn
 Then **restart DSH** and pick a model from the new group.
 
 
-**Version compatibility (important).** Peer dependencies are checked at install; a mismatched bundle is silently skipped (stderr prints `skipping profile bundle`).
+**Version compatibility (important).** Peer dependencies are checked at install; a mismatched bundle is refused ("incompatible with DSH … uninstall and reinstall a compatible version").
 
+From **`0.1.10`** the peer range is `^0.2.0-rc.2`, covering the whole `0.2.x` core line:
 
-| Plugin version | Requires DSH core | Desktop app |
+| Plugin version | Supported DSH core | Notes |
 |---|---|---|
-| **0.1.0 (current)** | **`0.2.0-rc.2`** | Desktop build with the `0.2.0-rc.2` core |
+| **`0.1.10` (current)** | **`0.2.0-rc.2` – `0.2.x`** | verified on `0.2.0-rc.2` and `0.2.1-rc.2` |
+| `0.1.0` – `0.1.9` | `0.2.0-rc.2` only | exact pin, refused by every core bump |
+
+`0.3.x` is still refused — a new minor line needs re-verification, and `test/gate.test.mjs` asserts that so the range cannot quietly become "accepts anything".
 
 
 ### Manual install (no GitHub access)
@@ -155,12 +159,22 @@ node lib/bin.js status
 ```sh
 git clone https://github.com/WuuShan/dsh-tuanjie-connect
 cd dsh-tuanjie-connect
+
+# No fixture needed
+node test/card.test.mjs       # 70 checks: card slot, client bundle, checkbox semantics, tabs
 node test/protocol.test.mjs   # 34 checks: credentials, signing, roster, shim, streaming, tools, images
 node test/account.test.mjs    # 31 checks: account, quota, redaction, status route
+node test/route.test.mjs      # 20 checks: the status route over real HTTP
+node test/tabs-data.test.mjs  # 23 checks: the tab data actually reaches the card
+node test/mutation.test.mjs   # injects 4 shipped defects; the suites must reject them
+
+# Needs the dsh-core fixture (run extract-core.mjs, then grow-core.mjs as needed)
+node test/visibility.test.mjs # 29 checks: real apply() + listModels filtering
+node test/gate.test.mjs       # 5 checks: the peer range judged by DSH's own gate
+node test/compat-core.mjs     # API-surface audit after a core upgrade
 ```
 
-
-Both run against the real endpoints using your own sign-in. All green means the install works.
+The first group runs against the real endpoints using your own sign-in; `visibility`/`gate`/`compat-core` need the `dsh-core` fixture extracted from the installed DSH. All green means the install works.
 
 
 > This sends a few real requests and may consume quota.

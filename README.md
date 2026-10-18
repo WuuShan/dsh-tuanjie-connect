@@ -79,12 +79,16 @@ dsh plugin --profile desktop add git+https://github.com/WuuShan/dsh-tuanjie-conn
 安装完成后**重启 DSH**，模型选择器里即可看到 Tuanjie Cowork 分组。
 
 
-**版本对应（重要）**：插件声明的 peer 依赖会在安装时做版本校验，不匹配会被静默跳过（stderr 提示 `skipping profile bundle`）。
+**版本对应（重要）**：插件声明的 peer 依赖会在安装时做版本校验，不匹配会被拒绝（提示「与 DSH 不兼容…请卸载后重新安装」）。
 
+自 **`0.1.10`** 起 peer 范围放宽为 `^0.2.0-rc.2`，覆盖整条 `0.2.x` 内核线：
 
-| 插件版本 | 要求的 DSH 内核 | 桌面 App |
+| 插件版本 | 支持的 DSH 内核 | 说明 |
 |---|---|---|
-| **0.1.0（当前）** | **`0.2.0-rc.2`** | 内置 `0.2.0-rc.2` 内核的桌面版 |
+| **`0.1.10`（当前）** | **`0.2.0-rc.2` ～ `0.2.x`** | 已实测：`0.2.0-rc.2`、`0.2.1-rc.2` |
+| `0.1.0` ～ `0.1.9` | 仅 `0.2.0-rc.2` | 精确 pin，内核一升级即被拒绝 |
+
+`0.3.x` 会被门禁正确拦下——新的次版本线需要重新验证。`test/gate.test.mjs` 会断言这一点，避免范围被放宽成「什么都接受」。
 
 
 ### 手动安装（无 GitHub 访问时）
@@ -155,14 +159,22 @@ node lib/bin.js status
 ```sh
 git clone https://github.com/WuuShan/dsh-tuanjie-connect
 cd dsh-tuanjie-connect
+
+# 不需夹具：纯逻辑与协议
+node test/card.test.mjs       # 70 项：卡片插槽、客户端 bundle、勾选框点击语义、三标签
 node test/protocol.test.mjs   # 34 项：凭据、签名、模型清单、本地端点、流式、工具、图片
 node test/account.test.mjs    # 31 项：账号、额度、脱敏、状态路由
-node test/card.test.mjs       # 27 项：卡片插槽、客户端 bundle、状态文档
 node test/route.test.mjs      # 20 项：状态路由的真实 HTTP 行为
+node test/tabs-data.test.mjs  # 23 项：三标签的数据是否真的流到卡片
+node test/mutation.test.mjs   # 4 个已发布缺陷注入，要求测试必须拒绝
+
+# 需要 dsh-core 夹具（先跑 extract-core.mjs，再按需 grow-core.mjs）
+node test/visibility.test.mjs # 29 项：真实 apply() + listModels 过滤（模型显隐的核心行为）
+node test/gate.test.mjs       # 5 项：用 DSH 的门禁逻辑验证 peer 范围
+node test/compat-core.mjs     # 内核升级后的 API 面审计
 ```
 
-
-两套都用你自己的登录态对真实接口检查。全绿即安装可用。
+`card`/`protocol`/`account`/`route`/`tabs-data` 用你自己的登录态对真实接口检查；`visibility`/`gate`/`compat-core` 需要 `dsh-core` 夹具（从已安装的 DSH 里抽取，见 `test/extract-core.mjs`）。全绿即安装可用。
 
 
 > 这一步会产生少量真实请求，可能消耗额度。
