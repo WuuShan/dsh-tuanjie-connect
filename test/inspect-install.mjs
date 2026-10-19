@@ -2,33 +2,44 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 const d = process.argv[2]
-const pkg = JSON.parse(fs.readFileSync(path.join(d, 'package.json'), 'utf8'))
+const codely = fs.readFileSync(path.join(d, 'lib', 'codely.js'), 'utf8')
 const client = fs.readFileSync(path.join(d, 'lib', 'client.js'), 'utf8')
 const host = fs.readFileSync(path.join(d, 'lib', 'index.js'), 'utf8')
+const pkg = JSON.parse(fs.readFileSync(path.join(d, 'package.json'), 'utf8'))
 
-const slots = [...client.matchAll(/name: '(plugins\.[a-z.]+)'/g)].map((m) => m[1])
-const bundleName = /BUNDLE_NAME = '([^']+)'/.exec(client)?.[1]
+let ok = 0
+let bad = 0
+function t(label, present) {
+  if (present) { ok++; console.log(`  ok    ${label}`) } else { bad++; console.log(`  MISS  ${label}`) }
+}
 
-console.log('版本                :', pkg.version)
-console.log('exports[./client]   :', pkg.exports?.['./client'])
-console.log('client.js 存在      :', fs.existsSync(path.join(d, 'lib', 'client.js')))
-console.log('注册的插槽          :', slots.join(', '))
-console.log('bundle.config 已注册:', client.includes("'plugins.bundle.config'"))
-console.log('key 用 BUNDLE_NAME  :', client.includes('key: BUNDLE_NAME'))
-console.log('BUNDLE_NAME 的值    :', bundleName)
-console.log('与 package name 一致:', bundleName === pkg.name)
-console.log('用 createElement    :', client.includes('react.createElement'))
-console.log('不再用 jsx-runtime  :', !client.includes('react/jsx-runtime'))
-console.log('客户端插件名        :', /const name = '([^']+)'/.exec(client)?.[1])
-console.log('与宿主名不同        :', /const name = '([^']+)'/.exec(client)?.[1] !== 'llm-tuanjie')
-console.log('宿主挂状态路由      :', host.includes('/plugins/dsh-tuanjie-connect/status'))
-console.log('宿主注入 webServer  :', host.includes("ctx.inject(['webServer']"))
-console.log('package.json BOM    :', fs.readFileSync(path.join(d, 'package.json'))[0] === 0xef ? '有!' : '无')
+console.log(`installed: ${pkg.name}@${pkg.version}\n`)
+console.log('=== transport fixes (v0.1.11) ===')
+t('pipeline forwards with backpressure', codely.includes('Readable.fromWeb'))
+t('mid-stream failure aborts instead of res.end()', codely.includes('res.destroy(error)'))
+t('control-plane calls carry a 30s timeout', codely.includes('AbortSignal.timeout(30000)'))
+t('late 401 reuses an already-rotated key', codely.includes('if (currentKey !== key)'))
+t('quotaPoints guards empty/illegal values', codely.includes('function quotaPoints'))
+t('SSE headers flushed immediately', codely.includes('res.flushHeaders()'))
+t('gateway asked for identity encoding', codely.includes('identity'))
+t('SSE marked no-transform / no buffering', codely.includes('x-accel-buffering'))
+t('Retry-After passed through', codely.includes('retry-after'))
 
-console.log('\n=== 可见性功能（v0.1.8）===')
-console.log('勾选框             :', client.includes("type: 'checkbox'"))
-console.log('visibility 路由    :', client.includes('/plugins/dsh-tuanjie-connect/visibility'))
-console.log('onToggle 回调      :', client.includes('onToggle'))
-console.log('listModels 子类    :', host.includes('class TuanjiePiAiAdapter'))
-console.log('宿主 visibility 路由:', host.includes('VISIBILITY_ROUTE_PATH'))
-console.log('宿主过滤 hidden    :', host.includes('hidden: () => visibilityStore.disabled'))
+console.log('\n=== quota display ===')
+t('read-only /quota route', host.includes('QUOTA_ROUTE_PATH'))
+t('catalog poll has a single-flight guard', host.includes('if (stopped || catalogRefresh) return'))
+t('card reads the quota route', client.includes('QUOTA_PATH'))
+t('card skips polling while hidden', client.includes('document.hidden'))
+t('card guards overlap and timeout', client.includes('pending') && client.includes('15000'))
+
+console.log('\n=== earlier work still present ===')
+t('createElement (not jsx-runtime)', client.includes('react.createElement'))
+t('registers plugins.bundle.config', client.includes('plugins.bundle.config'))
+t('checkbox asks for the flipped state', client.includes('props.onToggle(model.id, !isHidden)'))
+t('listModels subclass hides from the picker', host.includes('class TuanjiePiAiAdapter'))
+t('visibility store present', codely.includes('class TuanjieVisibilityStore'))
+t('peer range widened', String(pkg.peerDependencies['@deepseek-ai/dsh-llm']).startsWith('^'))
+t('test:offline script shipped', typeof pkg.scripts?.['test:offline'] === 'string')
+
+console.log(`\n=== ${bad === 0 ? `all ${ok} present` : `${bad} missing of ${ok + bad}`} ===`)
+process.exitCode = bad === 0 ? 0 : 1
