@@ -36,6 +36,12 @@ Bring the models bundled with the **Tuanjie Cowork** desktop app (Codely — GLM
 - **Self-healing.** A 401/403 from the gateway mints a fresh key and replays the request once. The credential file is rescanned every 30 seconds, so signing back in through the app recovers within 30 seconds — no DSH restart needed.
 
 
+- **Quota on the card.** Remaining credit, its update time and the exhausted state show at the top of the plugin card, refreshed every 60 seconds while the page is in front and paused when it is hidden. It reads a dedicated read-only route that mints no key and fetches no model list.
+
+
+- **Hardened streaming.** Responses are forwarded through `pipeline`, so backpressure propagates and a slow consumer cannot make the plugin buffer a whole reply in memory. A mid-stream upstream failure is reported as a transport failure instead of being dressed up as a clean finish — a truncated answer can no longer pass as complete. See [docs/transport-optimization.md](./docs/transport-optimization.md).
+
+
 - **Account detection.** `dsh-tuanjie-connect status` reports the signed-in account, email, token expiry, **remaining quota** and model-key health; `doctor` prints secret-free diagnostics (paths, token expiry, key state). Both accept `--json`, and neither ever emits a token — they are redacted automatically.
 
 ```console

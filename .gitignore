@@ -3,15 +3,20 @@ node_modules/
 lib/*.tmp
 
 # 本地维护材料，不随仓库发布
-# （docs/ 是逆向 DSH 内部 API 的研究笔记；extract-*/grow-* 是从已安装 App 的
-#  app.asar 抽包的工具；integration/loadcheck 依赖 dsh-core 测试夹具。
+# （逆向 DSH 内部 API 的研究笔记；extract-*/grow-* 是从已安装 App 的 app.asar
+#  抽包的工具；integration/loadcheck 依赖 dsh-core 测试夹具。
 #  原因：这些内容与插件本体无关，且不宜公开发布他人 App 的内部类型声明。）
-docs/
+# 只排除这些具体文件，不排除整个 docs/：docs/ 下同时放着本插件自己的设计说明，
+# 那些是要随仓库发布的。
+docs/DSH-plugin-api-notes.md
+docs/dsh-llm-declarations.txt
 test/extract-core.mjs
 test/grow-core.mjs
 test/integration.test.mjs
 test/loadcheck.mjs
 test/compat.mjs
+test/cmp-normalized.mjs
+test/merge-patch.mjs
 dsh-core/
 
 # 临时与其他
