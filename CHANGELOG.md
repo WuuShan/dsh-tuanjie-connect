@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.1.12
+
+修复回答被输出上限截断。
+
+- **根因**：`maxTokens` 声明为 `16384`，而这恰好是 pi-ai `DEFAULT_THINKING_BUDGETS` 里 `high` 档的推理预算（`clampReasoning` 把 `max` 也归到 `high`）。这条路由走 OpenAI 兼容协议，而 pi-ai 只对 Anthropic / Bedrock 路径调用 `adjustMaxTokensForThinking` 给答案留空间——OpenAI 路径上 `max_tokens` 就是「思考 + 回答」的**唯一**总池。于是开高推理档时，推理可以把整个 16384 吃光，答案是空的或被截断。
+- **实测证据**（`codely-core`，`reasoning_effort=high`，要求 400 条长枚举）：
+
+  | max_tokens | finish | completion | reasoning | 答案字符 |
+  |---|---|---|---|---|
+  | 16384 | length | 16384 | 16387 | **0** |
+  | 32768 | length | 32768 | 32769 | **0** |
+  | 65536 | length | 65536 | 65537 | **0** |
+
+  即「只加大预算」无效——推理会一直涨到吃满为止。
+- **改法**：`maxTokens` 提到 **65536**（网关接受，实测 `codely-core` 到 1000000 都通过），给推理之外留出真实的答案空间。常规任务下推理约 1300–1600，答案完整。
+- **上下文窗口改正**：`contextWindow` 从硬编码的 `202752` 改为网关 `/v1/models` 实际公布的 `max_model_len`（`codely-core` 1048576，`codely-flash` / `codely-vl` 1024000）。原来少报 5 倍，会让 DSH 过早压缩对话。
+- **新增保护**：`buildCatalog` 现在会采纳上游公布的上限（`max_output_tokens` / `max_completion_tokens` / `max_tokens`），并把 `maxTokens` 钳制在「上下文窗口 − 1024」以内。上下文很小的模型（实测 2048）不会再因为声明 65536 而被拒。
+- 新增 `test/limits.test.mjs`（27 项，离线）：断言每个模型的预设额度都高于「high 推理预算 + 答案空间」、窗口取自网关实际值、钳制在边界模型上正确、异常的上游值被忽略，以及 `maxTokens → pi-ai → max_tokens` 的接线仍然存在。变异测试把 `16384` 注入回去作为第 5 个用例，确认会被拒绝。
+- **仍存在的限制**：`thinking_token_budget` 字段网关语法上接受但不执行（实测 4096 与 8192 都无法约束失控的推理），所以插件层面无法强制推理收敛。遇到极长枚举类任务请手动降低推理档位。
+
 ## 0.1.11
 
 转发层加固 + 卡片顶部剩余额度。修复了 0.1.10 中真实的传输缺陷。

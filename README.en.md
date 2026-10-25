@@ -229,7 +229,8 @@ Environment variables: `DSH_TUANJIE_AUTH_FILE` / `DSH_TUANJIE_ORG_FILE` / `DSH_T
 - **Depends on the app's sign-in.** Signing out of the app empties the group; the plugin ships no sign-in flow of its own.
 - **Depends on unpublished internal interfaces.** `api-token/cli-api-key`, `/auth/refresh` and the signing scheme were reverse-engineered; upstream changes can break the plugin until realigned as described above.
 - **`refresh_token` may be stale** (it was on the machine this was developed on). When the access token then expires, sign in through the app once; the plugin recovers within 30 seconds.
-- **`codely-vl` is text-only**: the gateway's `is_vlm` flag does not mark it.
+- **Capabilities come from the gateway.** Image and video support follow `is_vlm` / `is_video` in `/v1/models`, so an upstream change shows up in the picker directly (`codely-vl` was once unflagged and is a vision model now). The plugin keeps no static table of its own beliefs.
+- **Reasoning and the answer share one budget.** This route speaks the OpenAI-compatible protocol, and pi-ai only auto-allocates "thinking budget plus answer room" on the Anthropic and Bedrock paths — so the declared `maxTokens` is the total ceiling for thinking *and* answer (65536 today). A task that invites very long enumeration can spend the entire allowance thinking and leave nothing for the answer. A larger ceiling does not help: 32768 and 65536 both ended with reasoning equal to the ceiling and zero answer characters. For those tasks, drop the reasoning effort to `low` or `medium` so the model starts writing sooner.
 - The minted `sk-` key is cached back into `~/.codely-cli/oauth_creds.json` — the same file and field the Codely CLI itself uses.
 
 

@@ -54,6 +54,16 @@ const CASES = [
     suite: 'card.test.mjs',
   },
   {
+    name: 'output ceiling: the old 16384 that left no room for an answer',
+    file: 'lib/codely.js',
+    from: "'codely-core': { name: 'GLM-5.3', contextWindow: 1048576, maxTokens: 65536, images: true },",
+    // The shipped defect: 16384 is exactly pi-ai's `high` thinking budget, and
+    // on this path reasoning and answer share one pool, so long planning ate the
+    // whole allowance and the reply was cut off with nothing left.
+    to: "'codely-core': { name: 'GLM-5.3', contextWindow: 1048576, maxTokens: 16384, images: true },",
+    suite: 'limits.test.mjs',
+  },
+  {
     name: 'visibility: toggle passes the current state instead of the flipped one',
     file: 'lib/client.js',
     from: 'onChange: () => props.onToggle(model.id, !isHidden)',

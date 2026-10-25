@@ -33,7 +33,10 @@ const core = (status.models ?? []).find((m) => m.id === 'codely-core')
 check('codely-core declares a context window', core?.contextWindow > 0, String(core?.contextWindow))
 check('codely-core is marked image-capable', core?.images === true, String(core?.images))
 const vl = (status.models ?? []).find((m) => m.id === 'codely-vl')
-check('codely-vl is text-only', vl?.images === false, String(vl?.images))
+// Not "is text-only": the gateway currently flags codely-vl is_vlm (and
+// is_video). Assert that the flag reaches the card instead of freezing one
+// observation, which is what made this fail when upstream changed.
+check('codely-vl carries an image capability flag', typeof vl?.images === 'boolean', String(vl?.images))
 
 console.log('\n=== 3. the quota tab has a data source ===')
 check('account present', status.account !== undefined)

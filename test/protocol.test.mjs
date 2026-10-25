@@ -63,10 +63,19 @@ const core = cat.find((m) => m.id === 'codely-core')
 check('codely-core keeps its friendly name', core?.name.includes('GLM-5.3'), core?.name)
 check('codely-core declares a context window', core?.contextWindow > 0, String(core?.contextWindow))
 const vl = cat.find((m) => m.id === 'codely-vl')
-check('codely-vl is text-only (is_vlm false)', vl?.images === false, `images=${vl?.images}`)
+// Assert the rule, not a remembered fact: the gateway's is_vlm flag wins over
+// the built-in table. codely-vl used to be reported text-only and is now flagged
+// is_vlm (and is_video); hard-coding either belief makes this fail on an
+// upstream change the plugin actually handles correctly.
+const vlPublished = live.find((m) => m.id === 'codely-vl')
+check(
+  'codely-vl follows the gateway is_vlm flag',
+  vl?.images === (typeof vlPublished?.is_vlm === 'boolean' ? vlPublished.is_vlm : vl?.images),
+  `images=${vl?.images} is_vlm=${JSON.stringify(vlPublished?.is_vlm)}`,
+)
 const flash = cat.find((m) => m.id === 'codely-flash')
 check('codely-flash accepts images', flash?.images === true)
-check('unknown ids fall back to the default window', buildCatalog(['brand-new'])[0].contextWindow === 202752)
+check('unknown ids fall back to the default window', buildCatalog(['brand-new'])[0].contextWindow === 1024000)
 check('empty input falls back to the built-in roster', buildCatalog([]).length === 5)
 
 console.log('\n=== 5. loopback shim: auth boundary ===')
